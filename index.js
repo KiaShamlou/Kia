@@ -29,14 +29,8 @@ async function getSpotifyMeta(spotifyUrl) {
   const data = await res.json();
 
   return {
-    title: data.title || "Unknown Track",
-    cover: data.thumbnail_url
-  };
-}
+    title: data.title || "Unknown Track",//
 
-function baseUrl(req) {
-  return `${req.protocol}://${req.get("host")}`;
-}
 
 /* =========================
    Admin
@@ -252,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 </body>
-</ht>`);
+</html>`);
 });
 //
 .links {
