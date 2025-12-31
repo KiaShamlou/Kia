@@ -1,40 +1,86 @@
 import express from "express";
+import fetch from "node-fetch";
+import slugify from "slugify";
 
 const app = express();
+app.use(express.json());
 
-/**
- * Simple track database
- * In real life you can replace this with:
- * - JSON file
- * - database
- * - dashboard later
- */
-const tracks = {
-  "sunset": {
-    spotify: "https://open.spotify.com/track/SPOTIFY_ID",
-    apple: "https://music.apple.com/track/APPLE_ID"
-  },
-  "night-drive": {
-    spotify: "https://open.spotify.com/track/SPOTIFY_ID",
-    apple: "https://music.apple.com/track/APPLE_ID"
-  }
-};
+// Simple in-memory storage
+const songs = {};
 
-app.get("/t/:track", (req, res) => {
-  const { track } = req.params;
-  const data = tracks[track];
+// ---- HELPER FUNCTION (GOES HERE) ----
+async function getSpotifyMeta(spotifyUrl) {
+  const res = await fetch(
+    `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`
+  );
 
-  if (!data) {
-    return res.status(404).send("Track not found");
+  if (!res.ok) {
+    throw new Error("Failed to fetch Spotify metadata");
   }
 
-  const ua = req.headers["user-agent"]?.toLowerCase() || "";
-  const isApple = ua.includes("iphone") || ua.includes("ipad") || ua.includes("mac");
+  const data = await res.json();
 
-  const redirectUrl = isApple ? data.apple : data.spotify;
-  res.redirect(302, redirectUrl);
+  return {
+    title: data.title,
+    cover: data.thumbnail_url
+  };
+}
+
+// ---- ADMIN: ADD SONG ----
+app.post("/songs", async (req, res) => {
+  try {
+    const { spotifyUrl, appleMusicUrl } = req.body;
+
+    if (!spotifyUrl || !appleMusicUrl) {
+      return res.status(400).json({
+        error: "spotifyUrl and appleMusicUrl are required"
+      });
+    }
+
+    const meta = await getSpotifyMeta(spotifyUrl);
+
+    const slug = slugify(meta.title, {
+      lower: true,
+      strict: true
+    });
+
+    songs[slug] = {
+      title: meta.title,
+      cover: meta.cover,
+      spotifyUrl,
+      appleMusicUrl
+    };
+
+    res.json({
+      title: meta.title,
+      cover: meta.cover,
+      urls: {
+        spotify: `https://kia.link/${slug}/spotify`,
+        apple: `https://kia.link/${slug}/apple`
+      }
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.listen(process.env.PORT || 3000, () =>
-  console.log("Redirect server running")
-);
+// ---- FAN LINKS ----
+app.get("/:slug/spotify", (req, res) => {
+  const song = songs[req.params.slug];
+  if (!song) return res.status(404).send("Not found");
+
+  res.redirect(302, song.spotifyUrl);
+});
+
+app.get("/:slug/apple", (req, res) => {
+  const song = songs[req.params.slug];
+  if (!song) return res.status(404).send("Not found");
+
+  res.redirect(302, song.appleMusicUrl);
+});
+
+// ---- START SERVER ----
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Kia link server running");
+});
