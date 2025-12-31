@@ -17,6 +17,7 @@ let mainLinks = [
 ];
 
 const songs = {};
+
 /* =========================
    Helpers
 ========================= */
@@ -29,8 +30,10 @@ async function getSpotifyMeta(spotifyUrl) {
   const data = await res.json();
 
   return {
-    title: data.title || "Unknown Track",//
-
+    title: data.title || "Unknown Track",
+    cover: data.thumbnail_url
+  };
+}
 
 /* =========================
    Admin
@@ -55,7 +58,7 @@ app.post("/api/songs", async (req, res) => {
 
   res.json({ success: true, song: songs[slug] });
 });
-//
+
 app.put("/api/links", (req, res) => {
   const { links } = req.body;
 
@@ -66,7 +69,6 @@ app.put("/api/links", (req, res) => {
   mainLinks = links.filter(l => l.label && l.url);
   res.json({ success: true, mainLinks });
 });
-
 
 /* =========================
    MAIN PROFILE PAGE
@@ -248,44 +250,6 @@ document.addEventListener("DOMContentLoaded", () => {
 </body>
 </html>`);
 });
-//
-.links {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.links a {
-  padding: 12px 18px;
-  border-radius: 14px;
-  background: rgba(255,255,255,.15);
-  color: white;
-  text-decoration: none;
-  font-weight: 600;
-}
-
-.songs {
-  max-width: 900px;
-  margin: 40px auto;
-  padding: 20px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
-  gap: 20px;
-}
-
-.song-card {
-  background: rgba(255,255,255,.08);
-  border-radius: 18px;
-  overflow: hidden;
-  text-decoration: none;
-  color: white;
-}
-
-.song-card img {
-  width: 100%;
-}
 
 /* =========================
    REDIRECT LOADING PAGE
@@ -370,6 +334,21 @@ a {
 </html>`);
 });
 
+/* =========================
+   PLATFORM REDIRECTS
+========================= */
+
+app.get("/:slug/spotify", (req, res) => {
+  const song = songs[req.params.slug];
+  if (!song) return res.status(404).send("Not found");
+  res.redirect(song.spotifyUrl);
+});
+
+app.get("/:slug/apple", (req, res) => {
+  const song = songs[req.params.slug];
+  if (!song) return res.status(404).send("Not found");
+  res.redirect(song.appleMusicUrl);
+});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
