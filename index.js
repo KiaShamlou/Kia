@@ -392,16 +392,14 @@ window.addEventListener("load", () => {
   try {
     const { r, g, b } = extractColor(img);
 
-    grad.style.background =
-  "linear-gradient(120deg," +
-  "rgb(" + r + "," + g + "," + b + ")," +
-  "rgb(" +
-    Math.max(r - 70, 0) + "," +
-    Math.max(g - 70, 0) + "," +
-    Math.max(b - 70, 0) +
-  ")," +
-  "#000)";
-
+    grad.style.background = \`
+      linear-gradient(
+        120deg,
+        rgb(\${r}, \${g}, \${b}),
+        rgb(\${Math.max(r - 70, 0)}, \${Math.max(g - 70, 0)}, \${Math.max(b - 70, 0)}),
+        #000
+      )
+    \`;
   } catch {
     grad.style.background = "linear-gradient(120deg, #222, #000)";
   }
@@ -462,57 +460,44 @@ p {
 </head>
 
 <body>
-<div id="gradient"></div>
 <main>
   <img src="${song.cover}" crossorigin="anonymous" />
   <p>Opening on Spotify…</p>
 </main>
 
 <script>
-function extractColors(img, count = 5) {
+function extractColor(img, cb) {
   const canvas = document.createElement("canvas");
-  const size = 80;
-  canvas.width = canvas.height = size;
+  canvas.width = canvas.height = 64;
   const ctx = canvas.getContext("2d");
 
-  ctx.drawImage(img, 0, 0, size, size);
-  const data = ctx.getImageData(0, 0, size, size).data;
+  ctx.drawImage(img, 0, 0, 64, 64);
+  const data = ctx.getImageData(0, 0, 64, 64).data;
 
-  const buckets = {};
-
-  for (let i = 0; i < data.length; i += 16) {
-    const r = data[i] & 0xf0;
-    const g = data[i + 1] & 0xf0;
-    const b = data[i + 2] & 0xf0;
-    const key = r + "," + g + "," + b;
-    buckets[key] = (buckets[key] || 0) + 1;
+  let r = 0, g = 0, b = 0, count = 0;
+  for (let i = 0; i < data.length; i += 20) {
+    r += data[i];
+    g += data[i+1];
+    b += data[i+2];
+    count++;
   }
 
-  return Object.entries(buckets)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, count)
-    .map(([rgb]) => "rgb(" + rgb + ")");
+  cb(\`rgb(\${~~(r/count)}, \${~~(g/count)}, \${~~(b/count)})\`);
 }
 
 window.onload = () => {
   const img = document.querySelector("img");
-  const gradient = document.getElementById("gradient");
 
-  if (!img || !gradient) return;
+  extractColor(img, color => {
+    document.body.style.background =
+      \`linear-gradient(120deg, \${color}, #000)\`;
+  });
 
-  try {
-    const colors = extractColors(img, 5);
-
-    gradient.style.background =
-  "linear-gradient(120deg," + colors.join(",") + ")";
-
-  } catch {
-    gradient.style.background =
-      "linear-gradient(120deg, #111, #000)";
-  }
+  setTimeout(() => {
+    window.location.replace("${song.spotifyUrl}");
+  }, 2000);
 };
 </script>
-
 </body>
 </html>`);
 });
