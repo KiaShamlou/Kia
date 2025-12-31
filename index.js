@@ -5,13 +5,18 @@ import slugify from "slugify";
 const app = express();
 app.use(express.json());
 
-const songs = {};
 const ARTIST = {
   name: "KIA",
   avatar: "https://i.scdn.co/image/ab67616100005174709b394e256c344cb2dbff11", // change later
   bio: "Young"
 };
 
+let mainLinks = [
+  { label: "Instagram", url: "https://instagram.com/" },
+  { label: "Spotify", url: "https://spotify.com/" }
+];
+
+const songs = {};
 /* =========================
    Helpers
 ========================= */
@@ -37,7 +42,7 @@ function baseUrl(req) {
    Admin
 ========================= */
 
-app.post("/songs", async (req, res) => {
+app.post("/api/songs", async (req, res) => {
   const { spotifyUrl, appleMusicUrl } = req.body;
   if (!spotifyUrl || !appleMusicUrl) {
     return res.status(400).json({ error: "Both URLs required" });
@@ -48,28 +53,38 @@ app.post("/songs", async (req, res) => {
 
   songs[slug] = {
     slug,
-    ...meta,
+    title: meta.title,
+    cover: meta.cover,
     spotifyUrl,
     appleMusicUrl
   };
 
-  const base = baseUrl(req);
-
-  res.json({
-    title: meta.title,
-    cover: meta.cover,
-    urls: {
-      spotify: `${base}/${slug}/spotify`,
-      apple: `${base}/${slug}/apple`
-    }
-  });
+  res.json({ success: true, song: songs[slug] });
 });
+//
+app.put("/api/links", (req, res) => {
+  const { links } = req.body;
+
+  if (!Array.isArray(links)) {
+    return res.status(400).json({ error: "Links must be an array" });
+  }
+
+  mainLinks = links.filter(l => l.label && l.url);
+  res.json({ success: true, mainLinks });
+});
+
 
 /* =========================
    MAIN PROFILE PAGE
 ========================= */
 
 app.get("/", (req, res) => {
+  const linksHtml = mainLinks
+    .map(
+      l => `<a href="${l.url}" target="_blank" rel="noopener">${l.label}</a>`
+    )
+    .join("");
+
   const songCards = Object.values(songs)
     .map(
       s => `
@@ -126,7 +141,7 @@ body {
 
 header {
   text-align: center;
-  padding: 48px 24px 32px;
+  padding: 48px 24px 24px;
 }
 
 header img {
@@ -145,15 +160,28 @@ header p {
   margin: 12px auto 0;
 }
 
-.toggle {
-  position: absolute;
-  top: 16px;
-  right: 16px;
+/* MAIN LINKS */
+.links {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
 }
 
+.links a {
+  padding: 12px 18px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.15);
+  color: inherit;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* SONG GRID */
 .grid {
   max-width: 900px;
-  margin: auto;
+  margin: 20px auto 60px;
   padding: 20px;
   display: grid;
   gap: 20px;
@@ -180,6 +208,14 @@ header p {
   padding: 14px;
   font-size: 15px;
 }
+
+/* THEME TOGGLE */
+.toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+}
 </style>
 
 <script>
@@ -199,19 +235,63 @@ document.addEventListener("DOMContentLoaded", () => {
 <body>
 <div class="gradient"></div>
 
-<button class="toggle" onclick="toggleTheme()">🌓</button>
+<button class="toggle" onclick="toggleTheme()">⏾</button>
 
 <header>
   <img src="${ARTIST.avatar}" />
   <h1>${ARTIST.name}</h1>
   <p>${ARTIST.bio}</p>
+
+  <div class="links">
+    ${linksHtml || "<span style='opacity:.4'>No links yet</span>"}
+  </div>
 </header>
 
-<div class="grid">${songCards}</div>
-</body>
-</html>`);
-});
+<div class="grid">
+  ${songCards || "<p style='opacity:.4;text-align:center'>No songs yet</p>"}
+</div>
 
+</body>
+</ht>`);
+});
+//
+.links {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.links a {
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.15);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.songs {
+  max-width: 900px;
+  margin: 40px auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px,1fr));
+  gap: 20px;
+}
+
+.song-card {
+  background: rgba(255,255,255,.08);
+  border-radius: 18px;
+  overflow: hidden;
+  text-decoration: none;
+  color: white;
+}
+
+.song-card img {
+  width: 100%;
+}
 
 /* =========================
    REDIRECT LOADING PAGE
