@@ -392,14 +392,16 @@ window.addEventListener("load", () => {
   try {
     const { r, g, b } = extractColor(img);
 
-    grad.style.background = \`
-      linear-gradient(
-        120deg,
-        rgb(\${r}, \${g}, \${b}),
-        rgb(\${Math.max(r - 70, 0)}, \${Math.max(g - 70, 0)}, \${Math.max(b - 70, 0)}),
-        #000
-      )
-    \`;
+    grad.style.background =
+  "linear-gradient(120deg," +
+  "rgb(" + r + "," + g + "," + b + ")," +
+  "rgb(" +
+    Math.max(r - 70, 0) + "," +
+    Math.max(g - 70, 0) + "," +
+    Math.max(b - 70, 0) +
+  ")," +
+  "#000)";
+
   } catch {
     grad.style.background = "linear-gradient(120deg, #222, #000)";
   }
@@ -500,12 +502,9 @@ window.onload = () => {
   try {
     const colors = extractColors(img, 5);
 
-    gradient.style.background = `
-      linear-gradient(
-        120deg,
-        ${colors.join(",")}
-      )
-    `;
+    gradient.style.background =
+  "linear-gradient(120deg," + colors.join(",") + ")";
+
   } catch {
     gradient.style.background =
       "linear-gradient(120deg, #111, #000)";
