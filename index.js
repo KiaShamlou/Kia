@@ -122,18 +122,27 @@ body {
 .gradient {
   position: fixed;
   inset: 0;
-  background: linear-gradient(120deg, #7f00ff, #e100ff, #00c6ff);
-  background-size: 400% 400%;
-  animation: move 15s ease infinite;
-  opacity: .25;
   z-index: -1;
+
+  background: linear-gradient(
+    120deg,
+    #7fd8ff,
+    #3fa9f5,
+    #6ee7ff,
+    #93c5fd
+  );
+  background-size: 500% 500%;
+
+  animation: gradientMove 6s ease-in-out infinite;
+  opacity: 0.35;
 }
 
-@keyframes move {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+@keyframes gradientMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
+
 
 header {
   text-align: center;
@@ -268,18 +277,37 @@ app.get("/:slug", (req, res) => {
 <style>
 body {
   margin: 0;
-  background: black;
   color: white;
   font-family: Inter, sans-serif;
+  background: black;
+  overflow: hidden;
 }
 
+/* Animated gradient (color injected by JS) */
+.gradient {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-size: 400% 400%;
+  animation: gradientMove 18s ease infinite;
+}
+
+/* Blurred cover layer */
 .bg {
   position: fixed;
   inset: 0;
+  z-index: -1;
   background-image: url("${song.cover}");
   background-size: cover;
   background-position: center;
-  filter: blur(40px) brightness(.3);
+  filter: blur(48px) brightness(.35);
+  transform: scale(1.1);
+}
+
+@keyframes gradientMove {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 main {
@@ -289,6 +317,7 @@ main {
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  text-align: center;
 }
 
 img {
@@ -298,7 +327,6 @@ img {
 }
 
 h1 { margin: 24px 0 8px; }
-
 p { opacity: .6; margin-bottom: 24px; }
 
 .buttons {
@@ -319,10 +347,11 @@ a {
 </head>
 
 <body>
+<div class="gradient" id="gradient"></div>
 <div class="bg"></div>
 
 <main>
-  <img src="${song.cover}" />
+  <img src="${song.cover}" crossorigin="anonymous" />
   <h1>${song.title}</h1>
   <p>${ARTIST.name}</p>
   <div class="buttons">
@@ -330,6 +359,52 @@ a {
     <a class="apple" href="/${song.slug}/apple">Apple Music</a>
   </div>
 </main>
+
+<script>
+function extractColor(img) {
+  const canvas = document.createElement("canvas");
+  const size = 64;
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d");
+
+  ctx.drawImage(img, 0, 0, size, size);
+  const data = ctx.getImageData(0, 0, size, size).data;
+
+  let r = 0, g = 0, b = 0, count = 0;
+  for (let i = 0; i < data.length; i += 20) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+    count++;
+  }
+
+  return {
+    r: (r / count) | 0,
+    g: (g / count) | 0,
+    b: (b / count) | 0
+  };
+}
+
+window.addEventListener("load", () => {
+  const img = document.querySelector("img");
+  const grad = document.getElementById("gradient");
+
+  try {
+    const { r, g, b } = extractColor(img);
+
+    grad.style.background = \`
+      linear-gradient(
+        120deg,
+        rgb(\${r}, \${g}, \${b}),
+        rgb(\${Math.max(r - 70, 0)}, \${Math.max(g - 70, 0)}, \${Math.max(b - 70, 0)}),
+        #000
+      )
+    \`;
+  } catch {
+    grad.style.background = "linear-gradient(120deg, #222, #000)";
+  }
+});
+</script>
 </body>
 </html>`);
 });
@@ -337,18 +412,112 @@ a {
 /* =========================
    PLATFORM REDIRECTS
 ========================= */
-
 app.get("/:slug/spotify", (req, res) => {
   const song = songs[req.params.slug];
   if (!song) return res.status(404).send("Not found");
-  res.redirect(song.spotifyUrl);
+
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Opening Spotify</title>
+
+<style>
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: white;
+  font-family: Inter, sans-serif;
+  background-size: 300% 300%;
+  animation: gradientMove 16s ease infinite;
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+main {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+img {
+  width: min(80vw, 320px);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+
+p {
+  opacity: .6;
+  margin-top: 16px;
+}
+</style>
+</head>
+
+<body>
+<main>
+  <img src="${song.cover}" crossorigin="anonymous" />
+  <p>Opening on Spotify…</p>
+</main>
+
+<script>
+function extractColor(img, cb) {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+
+  ctx.drawImage(img, 0, 0, 64, 64);
+  const data = ctx.getImageData(0, 0, 64, 64).data;
+
+  let r = 0, g = 0, b = 0, count = 0;
+  for (let i = 0; i < data.length; i += 20) {
+    r += data[i];
+    g += data[i+1];
+    b += data[i+2];
+    count++;
+  }
+
+  cb(\`rgb(\${~~(r/count)}, \${~~(g/count)}, \${~~(b/count)})\`);
+}
+
+window.onload = () => {
+  const img = document.querySelector("img");
+
+  extractColor(img, color => {
+    document.body.style.background =
+      \`linear-gradient(120deg, \${color}, #000)\`;
+  });
+
+  setTimeout(() => {
+    window.location.replace("${song.spotifyUrl}");
+  }, 2000);
+};
+</script>
+</body>
+</html>`);
 });
+
 
 app.get("/:slug/apple", (req, res) => {
   const song = songs[req.params.slug];
   if (!song) return res.status(404).send("Not found");
-  res.redirect(song.appleMusicUrl);
+
+  res.send(`<!DOCTYPE html>
+<!-- SAME HTML AS ABOVE -->
+<script>
+  // SAME CODE
+  setTimeout(() => {
+    window.location.replace("${song.appleMusicUrl}");
+  }, 2000);
+</script>
+`);
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
