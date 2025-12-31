@@ -462,6 +462,7 @@ p {
 </head>
 
 <body>
+<div id="gradient"></div>
 <main>
   <img src="${song.cover}" crossorigin="anonymous" />
   <p>Opening on Spotify…</p>
@@ -490,7 +491,7 @@ function extractColors(img, count = 5) {
   return Object.entries(buckets)
     .sort((a, b) => b[1] - a[1])
     .slice(0, count)
-    .map(([rgb]) => `rgb(${rgb})`);
+    .map(([rgb]) => "rgb(" + rgb + ")");
 }
 
 window.onload = () => {
