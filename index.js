@@ -6,6 +6,11 @@ const app = express();
 app.use(express.json());
 
 const songs = {};
+const ARTIST = {
+  name: "KIA",
+  avatar: "https://i.scdn.co/image/ab67616100005174709b394e256c344cb2dbff11", // change later
+  bio: "Young"
+};
 
 /* =========================
    Helpers
@@ -65,211 +70,232 @@ app.post("/songs", async (req, res) => {
 ========================= */
 
 app.get("/", (req, res) => {
-  const songList = Object.values(songs)
+  const songCards = Object.values(songs)
     .map(
       s => `
-      <div class="card">
+      <a class="card" href="/${s.slug}">
         <img src="${s.cover}" />
-        <div class="info">
-          <h3>${s.title}</h3>
-          <div class="buttons">
-            <a href="/${s.slug}/spotify" class="spotify">Spotify</a>
-            <a href="/${s.slug}/apple" class="apple">Apple Music</a>
-          </div>
-        </div>
-      </div>`
+        <h3>${s.title}</h3>
+      </a>`
     )
     .join("");
 
   res.send(`<!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Kia – Music</title>
+<title>${ARTIST.name}</title>
 
 <style>
+:root {
+  --bg: #0b0b0b;
+  --fg: white;
+  --card: rgba(255,255,255,0.05);
+}
+
+.light {
+  --bg: #f4f4f4;
+  --fg: #000;
+  --card: white;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, Inter, sans-serif;
-  background: #0b0b0b;
-  color: white;
+  font-family: Inter, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow-x: hidden;
+}
+
+/* Animated gradient */
+.gradient {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(120deg, #7f00ff, #e100ff, #00c6ff);
+  background-size: 400% 400%;
+  animation: move 15s ease infinite;
+  opacity: .25;
+  z-index: -1;
+}
+
+@keyframes move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 header {
   text-align: center;
-  padding: 48px 20px 24px;
+  padding: 48px 24px 32px;
 }
 
-header h1 {
-  margin: 0;
-  font-size: 32px;
-  letter-spacing: 1px;
+header img {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-bottom: 16px;
 }
+
+header h1 { margin: 0; letter-spacing: 2px; }
 
 header p {
-  opacity: 0.6;
+  opacity: .7;
+  max-width: 400px;
+  margin: 12px auto 0;
+}
+
+.toggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
 }
 
 .grid {
-  max-width: 960px;
+  max-width: 900px;
   margin: auto;
   padding: 20px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
 .card {
-  background: #121212;
+  text-decoration: none;
+  color: inherit;
+  background: var(--card);
   border-radius: 18px;
   overflow: hidden;
+  transition: transform .2s;
 }
+
+.card:hover { transform: translateY(-4px); }
 
 .card img {
   width: 100%;
   display: block;
 }
 
-.info {
-  padding: 16px;
-}
-
-h3 {
-  font-size: 16px;
-  margin: 0 0 12px;
-}
-
-.buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.buttons a {
-  flex: 1;
-  text-align: center;
-  padding: 12px;
-  border-radius: 12px;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.spotify {
-  background: #1db954;
-  color: #000;
-}
-
-.apple {
-  background: #ffffff;
-  color: #000;
+.card h3 {
+  padding: 14px;
+  font-size: 15px;
 }
 </style>
+
+<script>
+function toggleTheme() {
+  const t = document.body.classList.toggle("light");
+  localStorage.setItem("theme", t ? "light" : "dark");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  if (localStorage.theme === "light") {
+    document.body.classList.add("light");
+  }
+});
+</script>
 </head>
 
 <body>
+<div class="gradient"></div>
+
+<button class="toggle" onclick="toggleTheme()">🌓</button>
+
 <header>
-  <h1>KIA</h1>
-  <p>Listen on your favorite platform</p>
+  <img src="${ARTIST.avatar}" />
+  <h1>${ARTIST.name}</h1>
+  <p>${ARTIST.bio}</p>
 </header>
 
-<div class="grid">
-  ${songList || "<p style='opacity:.5'>No songs yet</p>"}
-</div>
+<div class="grid">${songCards}</div>
 </body>
 </html>`);
 });
+
 
 /* =========================
    REDIRECT LOADING PAGE
 ========================= */
 
-app.get("/:slug/:platform", (req, res) => {
-  const { slug, platform } = req.params;
-  const song = songs[slug];
-
+app.get("/:slug", (req, res) => {
+  const song = songs[req.params.slug];
   if (!song) return res.status(404).send("Not found");
-
-  const target =
-    platform === "spotify"
-      ? song.spotifyUrl
-      : platform === "apple"
-      ? song.appleMusicUrl
-      : null;
-
-  if (!target) return res.status(404).send("Invalid platform");
 
   res.send(`<!DOCTYPE html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${song.title}</title>
+
 <style>
 body {
   margin: 0;
   background: black;
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-family: Inter, sans-serif;
   color: white;
+  font-family: Inter, sans-serif;
 }
 
 .bg {
-  position: absolute;
+  position: fixed;
   inset: 0;
   background-image: url("${song.cover}");
   background-size: cover;
   background-position: center;
-  filter: blur(30px) brightness(.4);
+  filter: blur(40px) brightness(.3);
 }
 
-.content {
+main {
   position: relative;
-  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
-img.cover {
+img {
   width: min(80vw, 320px);
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0,0,0,.6);
 }
 
-.loader {
-  margin: 24px auto 0;
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(255,255,255,.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+h1 { margin: 24px 0 8px; }
+
+p { opacity: .6; margin-bottom: 24px; }
+
+.buttons {
+  display: flex;
+  gap: 16px;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+a {
+  padding: 14px 24px;
+  border-radius: 14px;
+  font-weight: 600;
+  text-decoration: none;
 }
 
-p {
-  opacity: .7;
-  margin-top: 12px;
-}
+.spotify { background: #1db954; color: black; }
+.apple { background: white; color: black; }
 </style>
-<script>
-setTimeout(() => {
-  window.location.href = "${target}";
-}, 2000);
-</script>
 </head>
 
 <body>
 <div class="bg"></div>
-<div class="content">
-  <img class="cover" src="${song.cover}" />
-  <div class="loader"></div>
-  <p>Opening ${platform === "spotify" ? "Spotify" : "Apple Music"}…</p>
-</div>
+
+<main>
+  <img src="${song.cover}" />
+  <h1>${song.title}</h1>
+  <p>${ARTIST.name}</p>
+  <div class="buttons">
+    <a class="spotify" href="/${song.slug}/spotify">Spotify</a>
+    <a class="apple" href="/${song.slug}/apple">Apple Music</a>
+  </div>
+</main>
 </body>
 </html>`);
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
