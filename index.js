@@ -1,86 +1,113 @@
-import express from "express";
-import fetch from "node-fetch";
-import slugify from "slugify";
+import express from 'express';
+import fetch from 'node-fetch';
+import slugify from 'slugify';
 
 const app = express();
 app.use(express.json());
 
-// Simple in-memory storage
 const songs = {};
 
-// ---- HELPER FUNCTION (GOES HERE) ----
+// Helper to get Spotify metadata via oEmbed
 async function getSpotifyMeta(spotifyUrl) {
-  const res = await fetch(
-    `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`
-  );
-
-  if (!res.ok) {
-    throw new Error("Failed to fetch Spotify metadata");
-  }
-
-  const data = await res.json();
-
-  return {
-    title: data.title,
-    cover: data.thumbnail_url
-  };
+    try {
+        const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(spotifyUrl)}`;
+        const response = await fetch(oembedUrl);
+        if (!response.ok) throw new Error(`Spotify oEmbed failed: ${response.status}`);
+        const data = await response.json();
+        return {
+            title: data.title || 'Unknown Track',
+            cover: data.thumbnail_url || null
+        };
+    } catch (error) {
+        console.error('Error fetching Spotify metadata:', error);
+        return { title: 'Unknown Track', cover: null };
+    }
 }
 
-// ---- ADMIN: ADD SONG ----
-app.post("/songs", async (req, res) => {
-  try {
+// Admin endpoint to add a song
+app.post('/songs', async (req, res) => {
     const { spotifyUrl, appleMusicUrl } = req.body;
-
+    
     if (!spotifyUrl || !appleMusicUrl) {
-      return res.status(400).json({
-        error: "spotifyUrl and appleMusicUrl are required"
-      });
+        return res.status(400).json({ error: 'Both spotifyUrl and appleMusicUrl are required' });
     }
 
-    const meta = await getSpotifyMeta(spotifyUrl);
+    try {
+        // Get metadata from Spotify
+        const { title, cover } = await getSpotifyMeta(spotifyUrl);
+        
+        // Create slug from title
+        const slug = slugify(title, { lower: true, strict: true });
+        
+        // Store the song
+        songs[slug] = {
+            title,
+            cover,
+            spotifyUrl,
+            appleMusicUrl,
+            createdAt: new Date().toISOString()
+        };
 
-    const slug = slugify(meta.title, {
-      lower: true,
-      strict: true
-    });
+        // Get the current domain dynamically
+        const protocol = req.protocol;
+        const host = req.get('host');
+        const baseUrl = `${protocol}://${host}`;
+        
+        res.json({
+            title,
+            cover,
+            urls: {
+                spotify: `${baseUrl}/${slug}/spotify`,
+                apple: `${baseUrl}/${slug}/apple`
+            }
+        });
+    } catch (error) {
+        console.error('Error processing song:', error);
+        res.status(500).json({ error: 'Failed to process song' });
+    }
+});
 
-    songs[slug] = {
-      title: meta.title,
-      cover: meta.cover,
-      spotifyUrl,
-      appleMusicUrl
-    };
+// Fan endpoints
+app.get('/:slug/spotify', (req, res) => {
+    const { slug } = req.params;
+    const song = songs[slug];
+    
+    if (!song) {
+        return res.status(404).json({ error: 'Song not found' });
+    }
+    
+    res.redirect(302, song.spotifyUrl);
+});
 
+app.get('/:slug/apple', (req, res) => {
+    const { slug } = req.params;
+    const song = songs[slug];
+    
+    if (!song) {
+        return res.status(404).json({ error: 'Song not found' });
+    }
+    
+    res.redirect(302, song.appleMusicUrl);
+});
+
+// Optional: List all songs (for debugging)
+app.get('/songs', (req, res) => {
+    res.json(songs);
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
     res.json({
-      title: meta.title,
-      cover: meta.cover,
-      urls: {
-        spotify: `https://kia.link/${slug}/spotify`,
-        apple: `https://kia.link/${slug}/apple`
-      }
+        message: 'Smart Link Service for Artist Kia',
+        endpoints: {
+            admin: 'POST /songs',
+            fan: 'GET /:slug/spotify and GET /:slug/apple',
+            list: 'GET /songs'
+        }
     });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
 
-// ---- FAN LINKS ----
-app.get("/:slug/spotify", (req, res) => {
-  const song = songs[req.params.slug];
-  if (!song) return res.status(404).send("Not found");
-
-  res.redirect(302, song.spotifyUrl);
-});
-
-app.get("/:slug/apple", (req, res) => {
-  const song = songs[req.params.slug];
-  if (!song) return res.status(404).send("Not found");
-
-  res.redirect(302, song.appleMusicUrl);
-});
-
-// ---- START SERVER ----
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Kia link server running");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
